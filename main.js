@@ -4,7 +4,7 @@ const TelegramBot = require("node-telegram-bot-api");
 const { uyinimkoniyatlari, yangiBoshlash } = require("./options.js");
 
 const TOKEN = process.env.TOKEN;
-const WEBHOOK_URL = process.env.WEBHOOK_URL;
+const WEBHOOK_URL = process.env.WEBHOOK_URL; // Render URL (masalan: https://SangPlus-Academy.onrender.com)
 const PORT = process.env.PORT || 3000;
 
 if (!TOKEN || !WEBHOOK_URL) {
@@ -21,7 +21,8 @@ app.use(express.json());
 // ==================
 // TELEGRAM BOT INIT (Webhook)
 const bot = new TelegramBot(TOKEN, { webHook: true });
-bot.setWebHook(WEBHOOK_URL);
+// Webhook URL to'liq bo'lishi kerak: Render URL + /bot
+bot.setWebHook(`${WEBHOOK_URL}/bot`);
 
 // ==================
 // STORAGE
@@ -123,6 +124,7 @@ app.post("/bot", (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
 });
+
 app.get("/", (req, res) => res.send("Bot ishlayapti..."));
 
 // ==================
