@@ -67,7 +67,7 @@ bot.on("message", async (msg) => {
             return bot.sendMessage(chatId, "🎲 Roll Dice tugmasini bosing!", diceButton);
 
         case "❓ Daily Quiz":
-            return bot.sendMessage(chatId, "🌍 Qaysi sayyorada eng katta?", dailyQuiz);
+            return bot.sendMessage(chatId, "🌍 Qaysi sayyora eng katta?", dailyQuiz);
 
         case "ℹ️ Info":
             return bot.sendMessage(chatId, "📚 Markaz fanlari: Kimyo, Tarix, Ona tili, Adabiyot, Matematika, Biologiya, Ingliz tili", MAIN_KEYBOARD);
