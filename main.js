@@ -1,131 +1,133 @@
-require('dotenv').config();
-
+require("dotenv").config();
+const express = require("express");
+const TelegramBot = require("node-telegram-bot-api");
 const { uyinimkoniyatlari, yangiBoshlash } = require("./options.js");
-const TelegramBot = require('node-telegram-bot-api');
 
-// .env faylidan token olish
-const token = process.env.TOKEN;
+const TOKEN = process.env.TOKEN;
+const WEBHOOK_URL = process.env.WEBHOOK_URL;
+const PORT = process.env.PORT || 3000;
 
-// Token mavjudligini tekshirish
-if (!token) {
-    console.error("ERROR: Token aniqlanmadi. Iltimos, .env faylingizni tekshiring!");
+if (!TOKEN || !WEBHOOK_URL) {
+    console.error("TOKEN yoki WEBHOOK_URL aniqlanmadi!");
     process.exit(1);
 }
 
-const bot = new TelegramBot(token, { polling: true });
-const obj = {}; // Random sonlarni saqlash uchun obyekt
+// ==================
+// EXPRESS SERVER
+// ==================
+const app = express();
+app.use(express.json());
 
-// O'yinni boshlash funksiyasi
-const uyinniBoshlash = async (chatId) => {
+// ==================
+// TELEGRAM BOT INIT (Webhook)
+const bot = new TelegramBot(TOKEN);
+bot.setWebHook(`${WEBHOOK_URL}`);
+
+// ==================
+// STORAGE
+// ==================
+const users = {}; // chatId -> { number, attempts }
+
+// ==================
+// KEYBOARDS
+const MAIN_KEYBOARD = {
+    reply_markup: {
+        keyboard: [
+            ["🎮 O'yin", "ℹ️ Info"],
+            ["📍 Manzil", "📩 Murojaat"]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false
+    }
+};
+
+// ==================
+// START GAME FUNCTION
+const startGame = async (chatId) => {
+    const randomNumber = Math.floor(Math.random() * 10);
+    users[chatId] = { number: randomNumber, attempts: 0 };
+
     await bot.sendMessage(
         chatId,
-        "Kompyuter 0 dan 9 gacha son o'yladi. Siz shu sonni topishga harakat qiling!"
+        "🎲 Kompyuter 0 dan 9 gacha son o'yladi.\nSiz shu sonni topishga harakat qiling!"
     );
-    const randomNumber = Math.floor(Math.random() * 10);
-    obj[chatId] = randomNumber; // Random sonni saqlash
-    await bot.sendMessage(chatId, "To'g'ri sonni toping?", uyinimkoniyatlari);
+
+    await bot.sendMessage(chatId, "👇 To‘g‘ri sonni tanlang:", uyinimkoniyatlari);
 };
 
-// Botni ishga tushirish funksiyasi
-const bootstrap = () => {
-    bot.setMyCommands([
-        { command: "/start", description: "Bot haqida Ma'lumot" },
-        { command: "/info", description: "SangPlus haqida ma'lumot" },
-        { command: "/murojat", description: "Biz bilan bog'lanish" },
-        { command: "/manzil", description: "Bizning Manzilimiz!" },
-        { command: "/uyin", description: "O'yinni boshlash" },
-    ]);
+// ==================
+// COMMANDS
+bot.setMyCommands([
+    { command: "/start", description: "Botni ishga tushirish" },
+    { command: "/info", description: "Markaz haqida ma'lumot" },
+    { command: "/murojat", description: "Bog'lanish ma'lumotlari" },
+    { command: "/manzil", description: "Bizning manzilimiz" },
+    { command: "/uyin", description: "O'yinni boshlash" }
+]);
 
-    bot.on("message", async (msg) => {
-        const text = msg.text;
-        const chatId = msg.chat.id;
+// ==================
+// MESSAGE HANDLER
+bot.on("message", async (msg) => {
+    const chatId = msg.chat.id;
+    const text = msg.text;
+    if (!text) return;
 
-        if (text === "/start") {
-            await bot.sendSticker(chatId, 'https://tlgrm.eu/_/stickers/380/9fb/3809fbe6-317b-3085-99e6-09e74c1044b0/11.webp');
-            return bot.sendMessage(
-                chatId,
-                `👩🏻‍🚀 SangPlus Assistant\nAssalomu alaykum, <b>${msg.from?.first_name.toUpperCase()}!</b>\n` +
-                `Sizni o'quv botimizda ko'rganimizdan xursandmiz! 😊`,
-                { parse_mode: 'HTML' }
-            );
-        }
+    switch (text) {
+        case "/start":
+            await bot.sendSticker(chatId, "https://tlgrm.eu/_/stickers/380/9fb/3809fbe6-317b-3085-99e6-09e74c1044b0/11.webp");
+            return bot.sendMessage(chatId, `👩🏻‍🚀 <b>SangPlus Assistant</b>\nAssalomu alaykum, <b>${msg.from?.first_name.toUpperCase()}!</b>`, { parse_mode: "HTML", ...MAIN_KEYBOARD });
 
-        if (text === "/info") {
-            return bot.sendMessage(
-                chatId,
-                "📚 O'quv markazimiz haqida qisqacha ma'lumot:\n" +
-                `👉 Kimyo\n👉 Tarix\n👉 Ona tili\n👉 Adabiyot\n👉 Matematika\n👉 Biologiya\n👉 Ingliz tili\n` +
-                "Sizni kutib qolamiz! 😊",
-                { parse_mode: 'HTML' }
-            );
-        }
+        case "🎮 O'yin":
+        case "/uyin":
+            return startGame(chatId);
 
-        if (text === "/murojat") {
-            return bot.sendMessage(
-                chatId,
-                `📩 Murojaat uchun ma'lumotlar:\n\n` +
-                `👤 Admin: @steven_jerard\n` +
-                `📱 Telegram Gruppamiz: @Nodirbek_Sang_plus\n` +
-                `📸 Instagram: https://www.instagram.com/sang.plus_?igsh=aG5kbnZ0MzBkaGlq`
-            );
-        }
+        case "ℹ️ Info":
+        case "/info":
+            return bot.sendMessage(chatId, "📚 <b>O‘quv markazimiz fanlari:</b>\n\n👉 Kimyo\n👉 Tarix\n👉 Ona tili\n👉 Adabiyot\n👉 Matematika\n👉 Biologiya\n👉 Ingliz tili", { parse_mode: "HTML", ...MAIN_KEYBOARD });
 
-        if (text === "/manzil") {
-            return bot.sendMessage(
-                chatId,
-                "🏫 Bizning Manzilimiz:\nNamangan viloyati, Pop tumani, Sang qishloqi, Toshxo'ja Eshon Masjid yonida joylashgan!"
-            );
-        }
+        case "📩 Murojaat":
+        case "/murojat":
+            return bot.sendMessage(chatId, `📩 <b>Murojaat:</b>\n👤 Admin: @steven_jerard\n📱 Telegram guruh: @Nodirbek_Sang_plus\n📸 Instagram: <a href="https://www.instagram.com/sang.plus_">Sang Plus Insta</a>`, { parse_mode: "HTML", ...MAIN_KEYBOARD, disable_web_page_preview: true });
 
-        if (text === "/uyin") {
-            return uyinniBoshlash(chatId);
-        }
+        case "📍 Manzil":
+        case "/manzil":
+            return bot.sendMessage(chatId, "🏫 <b>Bizning manzilimiz:</b>\nNamangan viloyati, Pop tumani, Sang qishlog‘i, Toshxo‘ja Eshon masjidi yonida", { parse_mode: "HTML", ...MAIN_KEYBOARD });
 
-        // Noma'lum xabarlar uchun
-        return bot.sendMessage(
-            chatId,
-            "Kechirasiz🤷🏻! Men sizning gapingizga tushunmadim.\n" +
-            "Savolingizni yana bir marta qaytaraolasizmi? 🙋🏻"
-        );
-    });
+        default:
+            return bot.sendMessage(chatId, "🤷🏻 Kechirasiz, tushunmadim.\nPastdagi tugmalardan foydalaning 👇", MAIN_KEYBOARD);
+    }
+});
 
-    bot.on("callback_query", async (msg) => {
-        const data = msg.data; // Callback ma'lumotlar
-        const chatId = msg.message.chat.id;
+// ==================
+// CALLBACK HANDLER
+bot.on("callback_query", async (query) => {
+    const chatId = query.message?.chat.id || query.from.id;
+    const data = query.data;
+    if (!data) return;
 
-        if (!data) return bot.sendMessage(chatId, "Callback malumoti noto'g'ri!");
+    if (data === "yangiBoshlash") return startGame(chatId);
 
-        if (data === "yangiBoshlash") {
-            const newRandomNumber = Math.floor(Math.random() * 10);
-            obj[chatId] = newRandomNumber; // Yangi random son
-            return bot.sendMessage(chatId, "Yangi o'yin boshlandi! 🔄", uyinimkoniyatlari);
-        }
+    const chosenNumber = parseInt(data);
+    const userData = users[chatId];
 
-        const chosenNumber = parseInt(data);
+    if (!userData) return bot.sendMessage(chatId, "O'yin boshlanmagan. 🎮", MAIN_KEYBOARD);
 
-        if (isNaN(chosenNumber)) {
-            return bot.sendMessage(chatId, "Noto'g'ri qiymat kiritildi. Iltimos, sonni tanlang.");
-        }
+    if (chosenNumber === userData.number) {
+        delete users[chatId];
+        return bot.sendMessage(chatId, `🎉 <b>Tabriklaymiz!</b>\nSiz to‘g‘ri topdingiz!\nKompyuter tanlagan son: <b>${chosenNumber}</b>`, { parse_mode: "HTML", ...NEW_GAME_INLINE });
+    } else {
+        delete users[chatId];
+        return bot.sendMessage(chatId, `❌ Noto‘g‘ri javob!\nSiz tanlagan son: ${chosenNumber}\nKompyuter tanlagan son: ${userData.number}\nQayta urinib ko'ring! 👇`, { parse_mode: "HTML", ...NEW_GAME_INLINE });
+    }
+});
 
-        const correctNumber = obj[chatId];
-        if (chosenNumber === correctNumber) {
-            delete obj[chatId]; // O'yinni yakunlash
-            return bot.sendMessage(
-                chatId,
-                `🏁Tabriklaymiz! Siz to'g'ri javob berdingiz 🥳\nKompyuter ${correctNumber}🙌 sonni tanlagan edi!`,
-                yangiBoshlash
-            );
-        } else {
-            return bot.sendMessage(
-                chatId,
-                `Siz noto'g'ri son tanladingiz. 😔\n` +
-                `Tanlagan soningiz: ${chosenNumber}❌\n` +
-                `Kompyuter ${correctNumber}✅ sonni tanlagan edi!\n` +
-                `Qayta urinib ko'ring!💁🏻‍♂️`,
-                yangiBoshlash
-            );
-        }
-    });
-};
+// ==================
+// EXPRESS ROUTE (Webhook)
+app.post("/bot", (req, res) => {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+});
 
-bootstrap();
+app.get("/", (req, res) => res.send("Bot ishlayapti..."));
+
+app.listen(PORT, () => console.log(`✅ Bot Webhook bilan ishga tushdi: ${PORT}`));
